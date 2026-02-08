@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>Pizza Maker</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 100%; height: 100dvh; overflow: hidden;
+      font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
+      user-select: none; -webkit-user-select: none;
+      touch-action: none;
+    }
+
+    /* ── Background ── */
+    .kitchen {
+      width: 100%; max-width: 430px; height: 100dvh;
+      margin: 0 auto; position: relative; overflow: hidden;
+      background:
+        radial-gradient(ellipse at 50% 30%, rgba(180,120,60,0.3) 0%, transparent 70%),
+        linear-gradient(180deg, #3d2b1f 0%, #5c3a24 30%, #4a2e1a 60%, #2d1a0e 100%);
+      display: flex; flex-direction: column;
+    }
+    .wood-grain {
+      position: absolute; inset: 0; pointer-events: none; opacity: 0.15;
+      background: repeating-linear-gradient(92deg, transparent, transparent 8px, rgba(0,0,0,0.15) 8px, rgba(0,0,0,0.15) 9px);
+    }
+
+    /* ── Header ── */
+    .header { text-align: center; padding: 16px 16px 8px; position: relative; z-index: 2; }
+    .header h1 {
+      font-size: 28px; font-weight: 800; color: #fff; letter-spacing: 1px;
+      text-shadow: 0 2px 10px rgba(0,0,0,0.5), 0 0 30px rgba(255,150,50,0.3);
+    }
+    .header p { font-size: 13px; color: rgba(255,220,180,0.7); margin-top: 4px; }
+
+    /* ── Pizza Area ── */
+    .pizza-area {
+      flex: 1; display: flex; justify-content: center; align-items: center;
+      position: relative; z-index: 2; padding: 0 20px;
+    }
+    .peel-wrap { position: relative; width: 280px; height: 320px; display: flex; justify-content: center; }
+    .peel {
+      position: absolute; bottom: -30px; left: 50%; transform: translateX(-50%);
+      width: 60px; height: 120px;
+      background: linear-gradient(180deg, #c4983a 0%, #a07830 100%);
+      border-radius: 4px 4px 8px 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    }
+    .dough {
+      width: 240px; height: 240px; border-radius: 50%; position: relative;
+      background: radial-gradient(circle at 40% 35%, #f5e6c8 0%, #e8d5a8 40%, #d4bf8a 100%);
+      box-shadow:
+        inset 0 -4px 12px rgba(0,0,0,0.2),
+        inset 0 4px 8px rgba(255,255,255,0.1),
+        0 8px 30px rgba(0,0,0,0.5);
+      overflow: hidden;
+      transition: background 0.15s;
+    }
+    .crust {
+      position: absolute; inset: 0; border-radius: 50%;
+      border: 16px solid #d4bf8a; pointer-events: none; z-index: 3;
+      transition: border-color 0.15s;
+    }
+    .sauce-layer {
+      position: absolute; inset: 18px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(180,30,20,0.45) 0%, rgba(160,25,15,0.3) 60%, transparent 100%);
+      z-index: 1; pointer-events: none; opacity: 0; transition: opacity 0.3s;
+    }
+    .sauce-layer.visible { opacity: 1; }
+    .cheese-layer {
+      position: absolute; inset: 22px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(255,220,100,0.35) 0%, rgba(255,200,70,0.2) 60%, transparent 100%);
+      z-index: 1; pointer-events: none; opacity: 0; transition: opacity 0.3s;
+    }
+    .cheese-layer.visible { opacity: 1; }
+    .cheese-layer.bubbling { animation: cheese-bubble 2s ease-in-out infinite; }
+    .char-overlay {
+      position: absolute; inset: 0; border-radius: 50%;
+      background: radial-gradient(circle, rgba(20,10,5,0.5) 0%, rgba(30,15,5,0.3) 60%, transparent 100%);
+      z-index: 4; pointer-events: none; opacity: 0; transition: opacity 0.3s;
+    }
+    .char-overlay.visible { opacity: 1; }
+
+    .placed-ingredient {
+      position: absolute; font-size: 28px; z-index: 2; pointer-events: none;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4));
+      line-height: 1; transition: opacity 0.3s;
+      animation: pop-in 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .placed-ingredient.dimmed { opacity: 0.3; }
+
+    .smoke {
+      position: absolute; font-size: 24px; z-index: 5; pointer-events: none; opacity: 0;
+    }
+    .smoke.active { animation: smoke-rise 1.8s ease-out infinite; }
+
+    .dough.breathing { animation: breathe 1.5s ease-in-out infinite; }
+
+    /* ── Tray ── */
+    .tray {
+      position: relative; z-index: 10;
+      display: flex; justify-content: center; gap: 8px;
+      padding: 12px 16px 16px;
+      background: linear-gradient(180deg, rgba(40,25,15,0.9) 0%, rgba(30,18,10,0.95) 100%);
+      border-top: 2px solid rgba(200,150,80,0.3);
+    }
+    .ing-btn {
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+      padding: 10px 12px; border-radius: 12px;
+      border: 1px solid rgba(200,150,80,0.25);
+      background: rgba(80,50,30,0.5);
+      cursor: grab; touch-action: none;
+    }
+    .ing-btn:active { transform: scale(0.95); }
+    .ing-emoji { font-size: 32px; line-height: 1; }
+    .ing-label {
+      font-size: 10px; color: rgba(255,220,180,0.8);
+      font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .ing-emoji.float { animation: float-emoji 3s ease-in-out infinite; }
+
+    /* ── Buttons ── */
+    .bake-btn, .stop-btn, .result-btn {
+      display: block; margin: 0 auto 16px;
+      padding: 14px 48px; font-size: 18px; font-weight: 700; color: #fff;
+      border: none; border-radius: 30px; cursor: pointer;
+      letter-spacing: 1px; text-transform: uppercase;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .bake-btn {
+      background: linear-gradient(135deg, #e85d26 0%, #c0392b 100%);
+      box-shadow: 0 4px 15px rgba(232,93,38,0.4), inset 0 1px 0 rgba(255,255,255,0.2);
+    }
+    .bake-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .bake-btn:active:not(:disabled) { transform: scale(0.95); }
+    .stop-btn {
+      background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+      box-shadow: 0 4px 15px rgba(231,76,60,0.5);
+      animation: pulse-stop 0.8s ease-in-out infinite;
+    }
+    .stop-btn:active { transform: scale(0.95); }
+
+    /* ── Heat Meter ── */
+    .heat-wrap { position: relative; z-index: 10; padding: 0 32px 16px; text-align: center; }
+    .heat-label {
+      font-size: 14px; font-weight: 700; color: #ffd7a8;
+      margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px;
+    }
+    .heat-track {
+      width: 100%; height: 28px; border-radius: 14px;
+      background: rgba(0,0,0,0.4); position: relative; overflow: visible;
+      border: 2px solid rgba(200,150,80,0.3);
+    }
+    .golden-zone {
+      position: absolute; top: 0; height: 100%;
+      background: rgba(255,200,50,0.25);
+      border-left: 2px dashed rgba(255,200,50,0.6);
+      border-right: 2px dashed rgba(255,200,50,0.6);
+    }
+    .golden-zone-label {
+      position: absolute; top: -18px; left: 50%; transform: translateX(-50%);
+      font-size: 10px; color: #ffd700; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap;
+    }
+    .heat-fill {
+      height: 100%; border-radius: 12px; transition: width 0.05s linear;
+    }
+    .heat-pointer {
+      position: absolute; top: -2px; width: 4px; height: 32px;
+      background: #fff; border-radius: 2px;
+      box-shadow: 0 0 8px rgba(255,255,255,0.8);
+      transition: left 0.05s linear;
+    }
+
+    /* ── Result Overlay ── */
+    .result-overlay {
+      position: absolute; inset: 0; z-index: 20;
+      display: flex; flex-direction: column; justify-content: center; align-items: center;
+      background: rgba(0,0,0,0.75); backdrop-filter: blur(6px);
+      padding: 24px; text-align: center;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.4s;
+    }
+    .result-overlay.visible { opacity: 1; pointer-events: auto; }
+    .result-emoji {
+      font-size: 80px; margin-bottom: 12px;
+      animation: result-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.2s both;
+    }
+    .result-title {
+      font-size: 32px; font-weight: 800; margin: 0 0 8px; letter-spacing: 1px;
+      opacity: 0; animation: slide-up 0.4s ease 0.4s forwards;
+    }
+    .result-desc {
+      font-size: 16px; color: #ddd; margin: 0 0 24px; opacity: 0;
+      max-width: 280px; line-height: 1.5;
+      animation: slide-up 0.4s ease 0.5s forwards;
+    }
+    .result-btns {
+      display: flex; gap: 12px; opacity: 0;
+      animation: slide-up 0.4s ease 0.6s forwards;
+    }
+    .result-btn {
+      padding: 12px 24px; font-size: 14px; font-weight: 700;
+      border: none; border-radius: 24px; cursor: pointer;
+      letter-spacing: 0.5px; text-transform: uppercase; color: #fff;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .result-btn:active { transform: scale(0.95); }
+    .btn-restart { background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3); }
+    .btn-share { background: linear-gradient(135deg, #f5af19 0%, #f12711 100%); }
+
+    /* ── Dragging ghost ── */
+    .drag-ghost {
+      position: fixed; font-size: 40px; pointer-events: none; z-index: 1000;
+      filter: drop-shadow(0 4px 12px rgba(0,0,0,0.5)); opacity: 0.9;
+      transform: translate(-50%, -50%);
+    }
+
+    /* ── Hidden ── */
+    .hidden { display: none !important; }
+
+    /* ── Animations ── */
+    @keyframes pulse-stop {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+    }
+    @keyframes cheese-bubble {
+      0%, 100% { transform: scale(1); opacity: 0.8; }
+      50% { transform: scale(1.15); opacity: 1; }
+    }
+    @keyframes smoke-rise {
+      0% { transform: translateY(0) scale(1); opacity: 0.7; }
+      100% { transform: translateY(-60px) scale(2); opacity: 0; }
+    }
+    @keyframes float-emoji {
+      0%, 100% { transform: translateY(0) rotate(0deg); }
+      50% { transform: translateY(-6px) rotate(3deg); }
+    }
+    @keyframes pop-in {
+      0% { transform: translate(-50%, -50%) scale(0); }
+      100% { transform: translate(-50%, -50%) scale(1); }
+    }
+    @keyframes breathe {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.03); }
+    }
+    @keyframes result-pop {
+      0% { transform: scale(0) rotate(-20deg); opacity: 0; }
+      100% { transform: scale(1) rotate(0deg); opacity: 1; }
+    }
+    @keyframes slide-up {
+      0% { transform: translateY(20px); opacity: 0; }
+      100% { transform: translateY(0); opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+  <div class="kitchen" id="kitchen">
+    <div class="wood-grain"></div>
+
+    <!-- Header -->
+    <div class="header">
+      <h1>Pizza Maker</h1>
+      <p id="subtitle">Drag ingredients onto the dough</p>
+    </div>
+
+    <!-- Pizza Area -->
+    <div class="pizza-area">
+      <div class="peel-wrap">
+        <div class="peel"></div>
+        <div class="dough" id="dough">
+          <div class="crust" id="crust"></div>
+          <div class="sauce-layer" id="sauceLayer"></div>
+          <div class="cheese-layer" id="cheeseLayer"></div>
+          <div class="char-overlay" id="charOverlay"></div>
+          <!-- Smoke particles -->
+          <span class="smoke" id="smoke0" style="left:20%; top:30%;">💨</span>
+          <span class="smoke" id="smoke1" style="left:35%; top:25%;">💨</span>
+          <span class="smoke" id="smoke2" style="left:50%; top:30%;">💨</span>
+          <span class="smoke" id="smoke3" style="left:65%; top:25%;">💨</span>
+          <span class="smoke" id="smoke4" style="left:80%; top:30%;">💨</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Assembly Controls -->
+    <div id="assemblyControls">
+      <div class="tray">
+        <div class="ing-btn" data-id="sauce" data-emoji="🍅">
+          <span class="ing-emoji float" style="animation-delay:0s">🍅</span>
+          <span class="ing-label">Sauce</span>
+        </div>
+        <div class="ing-btn" data-id="cheese" data-emoji="🧀">
+          <span class="ing-emoji float" style="animation-delay:0.4s">🧀</span>
+          <span class="ing-label">Cheese</span>
+        </div>
+        <div class="ing-btn" data-id="pepperoni" data-emoji="🔴">
+          <span class="ing-emoji float" style="animation-delay:0.8s">🔴</span>
+          <span class="ing-label">Pepperoni</span>
+        </div>
+        <div class="ing-btn" data-id="mushroom" data-emoji="🍄">
+          <span class="ing-emoji float" style="animation-delay:1.2s">🍄</span>
+          <span class="ing-label">Mushroom</span>
+        </div>
+        <div class="ing-btn" data-id="basil" data-emoji="🌿">
+          <span class="ing-emoji float" style="animation-delay:1.6s">🌿</span>
+          <span class="ing-label">Basil</span>
+        </div>
+      </div>
+      <button class="bake-btn" id="bakeBtn" disabled>Bake It!</button>
+    </div>
+
+    <!-- Cooking Controls -->
+    <div id="cookingControls" class="hidden">
+      <div class="heat-wrap">
+        <div class="heat-label">Heat Meter</div>
+        <div class="heat-track">
+          <div class="golden-zone" id="goldenZone" style="left:55%; width:20%;">
+            <span class="golden-zone-label">Golden Zone</span>
+          </div>
+          <div class="heat-fill" id="heatFill" style="width:0%"></div>
+          <div class="heat-pointer" id="heatPointer" style="left:0%"></div>
+        </div>
+        <button class="stop-btn" id="stopBtn">Stop!</button>
+      </div>
+    </div>
+
+    <!-- Result Overlay -->
+    <div class="result-overlay" id="resultOverlay">
+      <div class="result-emoji" id="resultEmoji"></div>
+      <h2 class="result-title" id="resultTitle"></h2>
+      <p class="result-desc" id="resultDesc"></p>
+      <div class="result-btns">
+        <button class="result-btn btn-restart" id="restartBtn">Start Over</button>
+        <button class="result-btn btn-share" id="shareBtn">Share My Creation</button>
+      </div>
+    </div>
+
+    <!-- Drag ghost -->
+    <div class="drag-ghost hidden" id="dragGhost"></div>
+  </div>
+
+  <script>
+    // ── State ──
+    const GOLDEN_START = 0.55;
+    const GOLDEN_END = 0.75;
+    const HEAT_SPEED = 0.004;
+
+    let phase = 'assembly'; // assembly | cooking | result
+    let placed = []; // { id, type, emoji, x, y, rotation }
+    let heat = 0;
+    let cookLevel = null;
+    let animFrame = null;
+    let idCounter = 0;
+    let dragging = null; // { emoji, x, y }
+
+    // ── DOM refs ──
+    const dough = document.getElementById('dough');
+    const crust = document.getElementById('crust');
+    const sauceLayer = document.getElementById('sauceLayer');
+    const cheeseLayer = document.getElementById('cheeseLayer');
+    const charOverlay = document.getElementById('charOverlay');
+    const subtitle = document.getElementById('subtitle');
+    const bakeBtn = document.getElementById('bakeBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const restartBtn = document.getElementById('restartBtn');
+    const shareBtn = document.getElementById('shareBtn');
+    const assemblyControls = document.getElementById('assemblyControls');
+    const cookingControls = document.getElementById('cookingControls');
+    const resultOverlay = document.getElementById('resultOverlay');
+    const resultEmoji = document.getElementById('resultEmoji');
+    const resultTitle = document.getElementById('resultTitle');
+    const resultDesc = document.getElementById('resultDesc');
+    const heatFill = document.getElementById('heatFill');
+    const heatPointer = document.getElementById('heatPointer');
+    const dragGhost = document.getElementById('dragGhost');
+    const smokes = [0,1,2,3,4].map(i => document.getElementById('smoke' + i));
+
+    // ── Dough color by cook level ──
+    function updateDoughColor(level) {
+      if (level === null) {
+        dough.style.background = 'radial-gradient(circle at 40% 35%, #f5e6c8 0%, #e8d5a8 40%, #d4bf8a 100%)';
+        crust.style.borderColor = '#d4bf8a';
+        return;
+      }
+      let bg, cc;
+      if (level < GOLDEN_START) {
+        const t = level / GOLDEN_START;
+        bg = `radial-gradient(circle at 40% 35%,
+          rgb(${245-t*20},${230-t*20},${200-t*10}) 0%,
+          rgb(${232-t*30},${213-t*30},${168-t*10}) 40%,
+          rgb(${212-t*30},${191-t*30},${138-t*10}) 100%)`;
+        cc = `rgb(${212-t*30},${191-t*20},138)`;
+      } else if (level <= GOLDEN_END) {
+        const t = (level - GOLDEN_START) / (GOLDEN_END - GOLDEN_START);
+        bg = `radial-gradient(circle at 40% 35%,
+          rgb(${225-t*20},${190-t*10},120) 0%,
+          rgb(${200-t*20},${160-t*10},90) 40%,
+          rgb(${180-t*20},${130-t*10},60) 100%)`;
+        cc = `rgb(${170-t*20},${120-t*10},50)`;
+      } else {
+        const t = Math.min((level - GOLDEN_END) / (1 - GOLDEN_END), 1);
+        bg = `radial-gradient(circle at 40% 35%,
+          rgb(${185-t*140},${170-t*145},${110-t*90}) 0%,
+          rgb(${160-t*130},${130-t*110},${70-t*55}) 40%,
+          rgb(${140-t*120},${100-t*85},${40-t*30}) 100%)`;
+        cc = `rgb(${130-t*110},${90-t*75},${30-t*20})`;
+      }
+      dough.style.background = bg;
+      crust.style.borderColor = cc;
+    }
+
+    function getHeatColor(level) {
+      if (level < GOLDEN_START) return `hsl(${40+level*40}, 90%, 55%)`;
+      if (level <= GOLDEN_END) return '#ffd700';
+      return `hsl(${20-(level-GOLDEN_END)*60}, 90%, ${50-(level-GOLDEN_END)*30}%)`;
+    }
+
+    // ── Drag & Drop ──
+    function getXY(e) {
+      const t = e.touches ? e.touches[0] : (e.changedTouches ? e.changedTouches[0] : e);
+      return { x: t.clientX, y: t.clientY };
+    }
+
+    document.querySelectorAll('.ing-btn').forEach(btn => {
+      const start = (e) => {
+        if (phase !== 'assembly') return;
+        e.preventDefault();
+        const pos = getXY(e);
+        dragging = { emoji: btn.dataset.emoji, type: btn.dataset.id, x: pos.x, y: pos.y };
+        dragGhost.textContent = dragging.emoji;
+        dragGhost.classList.remove('hidden');
+        dragGhost.style.left = pos.x + 'px';
+        dragGhost.style.top = pos.y + 'px';
+      };
+      btn.addEventListener('mousedown', start, { passive: false });
+      btn.addEventListener('touchstart', start, { passive: false });
+    });
+
+    function onMove(e) {
+      if (!dragging) return;
+      e.preventDefault();
+      const pos = getXY(e);
+      dragging.x = pos.x;
+      dragging.y = pos.y;
+      dragGhost.style.left = pos.x + 'px';
+      dragGhost.style.top = pos.y + 'px';
+    }
+
+    function onEnd(e) {
+      if (!dragging) return;
+      e.preventDefault();
+      const pos = getXY(e);
+      dragGhost.classList.add('hidden');
+
+      // Check if dropped on dough
+      const rect = dough.getBoundingClientRect();
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+      const radius = rect.width / 2 - 20;
+      const dx = pos.x - cx;
+      const dy = pos.y - cy;
+
+      if (Math.sqrt(dx * dx + dy * dy) < radius) {
+        const px = ((pos.x - rect.left) / rect.width) * 100;
+        const py = ((pos.y - rect.top) / rect.height) * 100;
+        const rotation = Math.random() * 40 - 20;
+        const item = { id: ++idCounter, type: dragging.type, emoji: dragging.emoji, x: px, y: py, rotation };
+        placed.push(item);
+
+        // Add element to dough
+        const span = document.createElement('span');
+        span.className = 'placed-ingredient';
+        span.dataset.placedId = item.id;
+        span.textContent = item.emoji;
+        span.style.left = px + '%';
+        span.style.top = py + '%';
+        span.style.transform = `translate(-50%, -50%) rotate(${rotation}deg)`;
+        dough.appendChild(span);
+
+        // Show layers
+        if (dragging.type === 'sauce') sauceLayer.classList.add('visible');
+        if (dragging.type === 'cheese') cheeseLayer.classList.add('visible');
+
+        bakeBtn.disabled = false;
+      }
+
+      dragging = null;
+    }
+
+    window.addEventListener('mousemove', onMove, { passive: false });
+    window.addEventListener('mouseup', onEnd);
+    window.addEventListener('touchmove', onMove, { passive: false });
+    window.addEventListener('touchend', onEnd);
+
+    // ── Cooking ──
+    bakeBtn.addEventListener('click', () => {
+      if (placed.length === 0) return;
+      phase = 'cooking';
+      heat = 0;
+      subtitle.textContent = 'Stop in the golden zone!';
+      assemblyControls.classList.add('hidden');
+      cookingControls.classList.remove('hidden');
+
+      function tick() {
+        heat += HEAT_SPEED;
+        if (heat >= 1) {
+          heat = 1;
+          updateHeat();
+          updateDoughColor(1);
+          finishCooking(1);
+          return;
+        }
+        updateHeat();
+        updateDoughColor(heat);
+        animFrame = requestAnimationFrame(tick);
+      }
+      animFrame = requestAnimationFrame(tick);
+    });
+
+    function updateHeat() {
+      heatFill.style.width = (heat * 100) + '%';
+      heatFill.style.background = `linear-gradient(90deg, #f5af19 0%, ${getHeatColor(heat)} 100%)`;
+      heatPointer.style.left = `calc(${heat * 100}% - 2px)`;
+    }
+
+    stopBtn.addEventListener('click', () => {
+      if (animFrame) cancelAnimationFrame(animFrame);
+      finishCooking(heat);
+    });
+
+    function finishCooking(level) {
+      phase = 'result';
+      cookLevel = level;
+      cookingControls.classList.add('hidden');
+
+      let result;
+      if (level < GOLDEN_START) {
+        result = { emoji: '😬', title: 'Undercooked!', desc: 'The dough is still pale and the cheese barely melted. Give it more time next round!', color: '#a8c8e8' };
+        shareBtn.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+      } else if (level <= GOLDEN_END) {
+        result = { emoji: '🤌', title: 'Perfetto!', desc: 'Golden crust, bubbling cheese, perfectly curled pepperoni. A masterpiece!', color: '#ffd700' };
+        shareBtn.style.background = 'linear-gradient(135deg, #f5af19 0%, #f12711 100%)';
+        dough.classList.add('breathing');
+        cheeseLayer.classList.add('bubbling');
+      } else {
+        result = { emoji: '🔥', title: 'Burnt!', desc: 'Charcoal pizza anyone? The smoke alarm is going off...', color: '#ff6b6b' };
+        shareBtn.style.background = 'linear-gradient(135deg, #434343 0%, #000000 100%)';
+        charOverlay.classList.add('visible');
+        smokes.forEach((s, i) => {
+          s.classList.add('active');
+          s.style.animationDelay = (i * 0.4) + 's';
+          s.style.animationDuration = (1.5 + i * 0.3) + 's';
+        });
+        document.querySelectorAll('.placed-ingredient').forEach(el => el.classList.add('dimmed'));
+      }
+
+      subtitle.textContent = result.title;
+      resultEmoji.textContent = result.emoji;
+      resultTitle.textContent = result.title;
+      resultTitle.style.color = result.color;
+      resultDesc.textContent = result.desc;
+      resultOverlay.classList.add('visible');
+    }
+
+    // ── Restart ──
+    restartBtn.addEventListener('click', resetGame);
+
+    function resetGame() {
+      if (animFrame) cancelAnimationFrame(animFrame);
+      phase = 'assembly';
+      placed = [];
+      heat = 0;
+      cookLevel = null;
+      idCounter = 0;
+
+      // Reset DOM
+      document.querySelectorAll('.placed-ingredient').forEach(el => el.remove());
+      sauceLayer.classList.remove('visible');
+      cheeseLayer.classList.remove('visible', 'bubbling');
+      charOverlay.classList.remove('visible');
+      dough.classList.remove('breathing');
+      smokes.forEach(s => s.classList.remove('active'));
+      updateDoughColor(null);
+      heatFill.style.width = '0%';
+      heatPointer.style.left = '0%';
+      bakeBtn.disabled = true;
+      subtitle.textContent = 'Drag ingredients onto the dough';
+      assemblyControls.classList.remove('hidden');
+      cookingControls.classList.add('hidden');
+      resultOverlay.classList.remove('visible');
+    }
+
+    // ── Share ──
+    shareBtn.addEventListener('click', () => {
+      const type = cookLevel < GOLDEN_START ? 'undercooked' : cookLevel <= GOLDEN_END ? 'perfect' : 'burnt';
+      const emoji = cookLevel < GOLDEN_START ? '😬' : cookLevel <= GOLDEN_END ? '🤌' : '🔥';
+      if (navigator.share) {
+        navigator.share({
+          title: 'My Pizza Creation!',
+          text: `I made a ${type} pizza in Pizza Maker! ${emoji}`,
+        }).catch(() => {});
+      } else {
+        alert(`I made a ${type} pizza! ${emoji}`);
+      }
+    });
+
+    // Prevent context menu on long press
+    document.addEventListener('contextmenu', e => e.preventDefault());
+  </script>
+</body>
+</html>
